@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     if (startDate) params.set("StartDate", startDate);
     if (endDate) params.set("EndDate", endDate);
     const query = params.toString();
-    const targetUrl = `${API_BASE_URL}/api/Log/stats/levels${query ? `?${query}` : ""}`;
+    const targetUrl = `${API_BASE_URL}/api/Log/stats/errors-and-criticals-by-source${query ? `?${query}` : ""}`;
 
     const response = await fetch(targetUrl, {
       method: "GET",
@@ -37,7 +37,7 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     return NextResponse.json(
-      { message: "Failed to fetch level stats from backend" },
+      { message: "Failed to fetch errors and criticals by source from backend" },
       { status: 500 }
     );
   }

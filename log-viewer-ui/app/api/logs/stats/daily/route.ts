@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 const API_BASE_URL = process.env.API_BASE_URL || "https://localhost:7257";
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
   const authHeader = request.headers.get("authorization");
 
   if (!authHeader) {
@@ -14,30 +13,28 @@ export async function GET(request: Request) {
   }
 
   try {
-    const startDate = searchParams.get("startDate");
-    const endDate = searchParams.get("endDate");
-    const params = new URLSearchParams();
-    if (startDate) params.set("StartDate", startDate);
-    if (endDate) params.set("EndDate", endDate);
-    const query = params.toString();
-    const targetUrl = `${API_BASE_URL}/api/Log/stats/levels${query ? `?${query}` : ""}`;
+    const targetUrl = `${API_BASE_URL}/api/Log/stats/daily`;
 
     const response = await fetch(targetUrl, {
       method: "GET",
       headers: {
         "Authorization": authHeader,
         "Content-Type": "application/json"
-      }
+      },
+      cache: 'no-store'
     });
+
+    if (!response.ok) {
+      throw new Error(`Backend returned ${response.status}`);
+    }
 
     const data = await response.json();
 
-    return NextResponse.json(data, {
-      status: response.status
-    });
+    return NextResponse.json(data, { status: 200 });
   } catch (error) {
+    console.error("Error fetching daily stats:", error);
     return NextResponse.json(
-      { message: "Failed to fetch level stats from backend" },
+      { message: "Failed to fetch daily statistics from backend" },
       { status: 500 }
     );
   }

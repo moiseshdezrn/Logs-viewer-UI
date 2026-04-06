@@ -15,7 +15,12 @@ export async function GET(request: Request) {
 
   try {
     const groupBy = searchParams.get("groupBy") || "day";
-    const targetUrl = `${API_BASE_URL}/api/Log/stats/timeline?groupBy=${groupBy}`;
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
+    const params = new URLSearchParams({ groupBy });
+    if (startDate) params.set("StartDate", startDate);
+    if (endDate) params.set("EndDate", endDate);
+    const targetUrl = `${API_BASE_URL}/api/Log/stats/timeline?${params.toString()}`;
 
     const response = await fetch(targetUrl, {
       method: "GET",

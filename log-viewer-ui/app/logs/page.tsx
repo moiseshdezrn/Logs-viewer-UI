@@ -32,6 +32,7 @@ interface PagedResult {
 
 export default function LogsPage() {
   const { isLoading: authLoading } = useAuth();
+  const [mounted, setMounted] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +49,14 @@ export default function LogsPage() {
 
   const [sources, setSources] = useState<string[]>([]);
   const [applications, setApplications] = useState<string[]>([]);
+
+  const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!authLoading) {
@@ -159,6 +168,57 @@ export default function LogsPage() {
     }, 0);
   }
 
+  async function handleViewDetails(logId: number) {
+    setLoadingDetails(true);
+    setShowModal(true);
+    
+    try {
+      const token = getAuthToken();
+      const url = `/api/logs/${logId}`;
+      console.log("Fetching log details from:", url);
+      
+      const response = await fetch(url, {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      });
+
+      console.log("Response status:", response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Error response:", errorText);
+        throw new Error(`Failed to fetch log details: ${response.statusText}`);
+      }
+
+      const logDetails: LogEntry = await response.json();
+      console.log("Log details received:", logDetails);
+      setSelectedLog(logDetails);
+    } catch (err) {
+      console.error("Failed to fetch log details:", err);
+      setSelectedLog(null);
+    } finally {
+      setLoadingDetails(false);
+    }
+  }
+
+  function handleCloseModal() {
+    setShowModal(false);
+    setSelectedLog(null);
+  }
+
+  function formatTimestamp(timestamp: string): string {
+    const date = new Date(timestamp);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  }
+
   function getLevelColor(level: string): string {
     switch (level.toLowerCase()) {
       case "error":
@@ -175,7 +235,7 @@ export default function LogsPage() {
     }
   }
 
-  if (authLoading) {
+  if (!mounted || authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-black">
         <div className="text-lg text-zinc-600 dark:text-zinc-400">Loading...</div>
@@ -189,24 +249,23 @@ export default function LogsPage() {
       <div className="min-h-screen bg-zinc-50 pt-16 dark:bg-black">
         <div className="mx-auto max-w-7xl px-6 py-8">
           <div className="mb-6">
-            <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50">Logs</h1>
             <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
               Showing {logs.length} of {totalCount} logs
             </p>
           </div>
 
-          <div className="mb-6 rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="mb-6 rounded-lg border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
             <div className="flex flex-wrap items-end gap-3">
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
                   Level
                 </label>
                 <select
                   value={level}
                   onChange={(e) => setLevel(e.target.value)}
-                  className="h-9 w-32 rounded border border-zinc-200 bg-white px-2 text-sm text-zinc-900 outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-200 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
+                  className="h-10 w-36 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:focus:border-sky-400 dark:focus:ring-sky-900"
                 >
-                  <option value="All">All</option>
+                  <option value="All">All Levels</option>
                   <option value="Debug">Debug</option>
                   <option value="Information">Information</option>
                   <option value="Warning">Warning</option>
@@ -214,7 +273,7 @@ export default function LogsPage() {
                 </select>
               </div>
 
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
                   From
                 </label>
@@ -222,11 +281,11 @@ export default function LogsPage() {
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="h-9 w-40 rounded border border-zinc-200 bg-white px-2 text-sm text-zinc-900 outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-200 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
+                  className="h-10 w-44 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:focus:border-sky-400 dark:focus:ring-sky-900"
                 />
               </div>
 
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
                   To
                 </label>
@@ -234,20 +293,20 @@ export default function LogsPage() {
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="h-9 w-40 rounded border border-zinc-200 bg-white px-2 text-sm text-zinc-900 outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-200 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
+                  className="h-10 w-44 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:focus:border-sky-400 dark:focus:ring-sky-900"
                 />
               </div>
 
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
                   Source
                 </label>
                 <select
                   value={source}
                   onChange={(e) => setSource(e.target.value)}
-                  className="h-9 w-40 rounded border border-zinc-200 bg-white px-2 text-sm text-zinc-900 outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-200 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
+                  className="h-10 w-44 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:focus:border-sky-400 dark:focus:ring-sky-900"
                 >
-                  <option value="All">All</option>
+                  <option value="All">All Sources</option>
                   {sources.map((s) => (
                     <option key={s} value={s}>
                       {s}
@@ -256,16 +315,16 @@ export default function LogsPage() {
                 </select>
               </div>
 
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
                   Application
                 </label>
                 <select
                   value={application}
                   onChange={(e) => setApplication(e.target.value)}
-                  className="h-9 w-40 rounded border border-zinc-200 bg-white px-2 text-sm text-zinc-900 outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-200 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
+                  className="h-10 w-44 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:focus:border-sky-400 dark:focus:ring-sky-900"
                 >
-                  <option value="All">All</option>
+                  <option value="All">All Applications</option>
                   {applications.map((app) => (
                     <option key={app} value={app}>
                       {app}
@@ -274,7 +333,7 @@ export default function LogsPage() {
                 </select>
               </div>
 
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
                   Search
                 </label>
@@ -283,22 +342,24 @@ export default function LogsPage() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search messages..."
-                  className="h-9 w-48 rounded border border-zinc-200 bg-white px-2 text-sm text-zinc-900 outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-200 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 placeholder:text-zinc-400"
+                  className="h-10 w-52 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:focus:border-sky-400 dark:focus:ring-sky-900 placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
                 />
               </div>
 
-              <button
-                onClick={handleApplyFilters}
-                className="h-9 rounded bg-sky-600 px-5 text-sm font-semibold text-white transition hover:bg-sky-700"
-              >
-                Apply
-              </button>
-              <button
-                onClick={handleClearFilters}
-                className="h-9 rounded border border-zinc-200 bg-white px-5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-              >
-                Clear
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleApplyFilters}
+                  className="h-10 rounded-md bg-sky-600 px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 dark:focus:ring-offset-zinc-900"
+                >
+                  Apply
+                </button>
+                <button
+                  onClick={handleClearFilters}
+                  className="h-10 rounded-md border border-zinc-300 bg-white px-6 text-sm font-medium text-zinc-700 shadow-sm transition hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:focus:ring-offset-zinc-900"
+                >
+                  Clear
+                </button>
+              </div>
             </div>
           </div>
 
@@ -314,102 +375,257 @@ export default function LogsPage() {
             </div>
           ) : (
             <>
-              <div className="overflow-auto rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900" style={{ maxHeight: "calc(100vh - 320px)" }}>
-                <table className="w-full text-left text-sm">
-                  <thead className="sticky top-0 border-b border-zinc-200 bg-zinc-50 text-xs uppercase text-zinc-700 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-300">
-                    <tr>
-                      <th className="px-4 py-3 whitespace-nowrap">ID</th>
-                      <th className="px-4 py-3 whitespace-nowrap">Timestamp</th>
-                      <th className="px-4 py-3 whitespace-nowrap">Level</th>
-                      <th className="px-4 py-3 whitespace-nowrap">Message</th>
-                      <th className="px-4 py-3 whitespace-nowrap">Source</th>
-                      <th className="px-4 py-3 whitespace-nowrap">Application</th>
-                      <th className="px-4 py-3 whitespace-nowrap">Machine</th>
-                      <th className="px-4 py-3 whitespace-nowrap">User ID</th>
-                      <th className="px-4 py-3 whitespace-nowrap">Request</th>
-                      <th className="px-4 py-3 whitespace-nowrap">Correlation ID</th>
-                      <th className="px-4 py-3 whitespace-nowrap">Thread ID</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {logs.map((log) => (
-                      <tr
-                        key={log.id}
-                        className="border-b border-zinc-200 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800/50"
-                      >
-                        <td className="px-4 py-3 font-mono text-xs">{log.id}</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-xs">
-                          {new Date(log.timestamp).toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`rounded-full px-2 py-1 text-xs font-medium ${getLevelColor(log.level)}`}>
-                            {log.level}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 max-w-md">
-                          <div className="truncate" title={log.message}>
-                            {log.message}
-                          </div>
-                          {log.exceptionMessage && (
-                            <div className="mt-1 truncate text-xs text-red-600 dark:text-red-400" title={log.exceptionMessage}>
-                              {log.exceptionMessage}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-xs">{log.source}</td>
-                        <td className="px-4 py-3 text-xs">{log.applicationName}</td>
-                        <td className="px-4 py-3 text-xs">{log.machineName}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{log.userId || "-"}</td>
-                        <td className="px-4 py-3 text-xs">
-                          {log.requestMethod && log.requestPath ? (
-                            <span className="font-mono">
-                              {log.requestMethod} {log.requestPath}
-                            </span>
-                          ) : (
-                            "-"
-                          )}
-                        </td>
-                        <td className="px-4 py-3 font-mono text-xs">
-                          {log.correlationId ? log.correlationId.substring(0, 8) : "-"}
-                        </td>
-                        <td className="px-4 py-3 font-mono text-xs">{log.threadId || "-"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {logs.length === 0 && !loading && (
+              {logs.length === 0 ? (
                 <div className="py-12 text-center text-zinc-600 dark:text-zinc-400">
                   No logs found
                 </div>
-              )}
+              ) : (
+                <>
+                  <div 
+                    className="mb-6 rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+                    style={{ 
+                      maxHeight: '50vh',
+                      overflow: 'auto',
+                      position: 'relative'
+                    }}
+                  >
+                    <table 
+                      className="border-collapse text-left"
+                      style={{ 
+                        width: '100%',
+                        minWidth: '1500px',
+                        tableLayout: 'fixed'
+                      }}
+                    >
+                      <thead 
+                        className="border-b-2 border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800"
+                        style={{
+                          position: 'sticky',
+                          top: 0,
+                          zIndex: 10
+                        }}
+                      >
+                        <tr>
+                          <th className="px-3 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400" style={{ width: '70px' }}>ID</th>
+                          <th className="px-3 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400" style={{ width: '170px' }}>Timestamp</th>
+                          <th className="px-3 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400" style={{ width: '120px' }}>Level</th>
+                          <th className="px-3 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400" style={{ width: '350px' }}>Message</th>
+                          <th className="px-3 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400" style={{ width: '130px' }}>Source</th>
+                          <th className="px-3 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400" style={{ width: '130px' }}>Application</th>
+                          <th className="px-3 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400" style={{ width: '110px' }}>Machine</th>
+                          <th className="px-3 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400" style={{ width: '110px' }}>User ID</th>
+                          <th className="px-3 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400" style={{ width: '150px' }}>Request</th>
+                          <th className="px-3 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400" style={{ width: '120px' }}>Correlation</th>
+                          <th className="px-3 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400" style={{ width: '90px' }}>Thread</th>
+                          <th className="px-3 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400" style={{ width: '100px' }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-200 bg-white dark:divide-zinc-800 dark:bg-zinc-900">
+                        {logs.map((log) => (
+                          <tr
+                            key={log.id}
+                            className="transition hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                          >
+                            <td className="px-3 py-3 font-mono text-xs font-medium text-zinc-900 dark:text-zinc-100" style={{ width: '70px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{log.id}</td>
+                            <td className="px-3 py-3 text-xs text-zinc-700 dark:text-zinc-300" style={{ width: '170px', whiteSpace: 'nowrap' }}>
+                              {formatTimestamp(log.timestamp)}
+                            </td>
+                            <td className="px-3 py-3" style={{ width: '120px', whiteSpace: 'nowrap' }}>
+                              <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${getLevelColor(log.level)}`}>
+                                {log.level}
+                              </span>
+                            </td>
+                            <td className="px-3 py-3" style={{ width: '350px' }}>
+                              <div className="text-sm font-medium leading-snug text-zinc-900 dark:text-zinc-100" style={{ overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }} title={log.message}>
+                                {log.message}
+                              </div>
+                              {log.exceptionMessage && (
+                                <div className="mt-1.5 text-xs font-medium leading-snug text-red-600 dark:text-red-400" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.exceptionMessage}>
+                                  Exception: {log.exceptionMessage}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-3 py-3 text-xs text-zinc-700 dark:text-zinc-300" style={{ width: '130px' }}>
+                              <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.source}>{log.source}</div>
+                            </td>
+                            <td className="px-3 py-3 text-xs text-zinc-700 dark:text-zinc-300" style={{ width: '130px' }}>
+                              <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.applicationName}>{log.applicationName}</div>
+                            </td>
+                            <td className="px-3 py-3 text-xs text-zinc-600 dark:text-zinc-400" style={{ width: '110px' }}>
+                              <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.machineName}>{log.machineName}</div>
+                            </td>
+                            <td className="px-3 py-3 font-mono text-xs text-zinc-600 dark:text-zinc-400" style={{ width: '110px' }}>
+                              <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.userId || "-"}</div>
+                            </td>
+                            <td className="px-3 py-3" style={{ width: '150px' }}>
+                              {log.requestMethod && log.requestPath ? (
+                                <div>
+                                  <div className="text-xs font-semibold text-zinc-900 dark:text-zinc-100" style={{ whiteSpace: 'nowrap' }}>{log.requestMethod}</div>
+                                  <div className="font-mono text-xs text-zinc-600 dark:text-zinc-400" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.requestPath}>{log.requestPath}</div>
+                                </div>
+                              ) : (
+                                <span className="text-zinc-400">-</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-3 font-mono text-xs text-zinc-600 dark:text-zinc-400" style={{ width: '120px', whiteSpace: 'nowrap' }}>{log.correlationId ? log.correlationId.substring(0, 8) : "-"}</td>
+                            <td className="px-3 py-3 font-mono text-xs text-zinc-600 dark:text-zinc-400" style={{ width: '90px', whiteSpace: 'nowrap' }}>{log.threadId || "-"}</td>
+                            <td className="px-3 py-3" style={{ width: '100px' }}>
+                              <button
+                                onClick={() => handleViewDetails(log.id)}
+                                className="rounded-md bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-1"
+                              >
+                                View
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
 
-              {totalPages > 1 && (
-                <div className="mt-6 flex items-center justify-between">
-                  <button
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                  >
-                    Previous
-                  </button>
-                  <span className="text-sm text-zinc-600 dark:text-zinc-400">
-                    Page {page} of {totalPages}
-                  </span>
-                  <button
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={page === totalPages}
-                    className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                  >
-                    Next
-                  </button>
-                </div>
+                  {totalPages > 1 && (
+                    <div className="mb-8 flex items-center justify-between rounded-lg border border-zinc-200 bg-white px-4 py-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+                      <button
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        disabled={page === 1}
+                        className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                      >
+                        Previous
+                      </button>
+                      <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                        Page {page} of {totalPages}
+                      </span>
+                      <button
+                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={page === totalPages}
+                        className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}
         </div>
       </div>
+
+      {showModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={handleCloseModal}
+        >
+          <div 
+            className="relative mx-4 max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-zinc-200 bg-zinc-50 px-6 py-4 dark:border-zinc-800 dark:bg-zinc-800">
+              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Log Details</h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCloseModal}
+                  className="rounded-md border border-zinc-300 bg-white px-4 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={handleCloseModal}
+                  className="rounded-md p-1.5 text-zinc-500 transition hover:bg-zinc-200 hover:text-zinc-900 dark:hover:bg-zinc-700 dark:hover:text-zinc-50"
+                  aria-label="Close modal"
+                >
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-y-auto p-6" style={{ maxHeight: 'calc(90vh - 80px)' }}>
+              {loadingDetails ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-zinc-600 dark:text-zinc-400">Loading details...</div>
+                </div>
+              ) : selectedLog ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">ID</label>
+                      <p className="mt-1 font-mono text-sm font-medium text-zinc-900 dark:text-zinc-100">{selectedLog.id}</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">Timestamp</label>
+                      <p className="mt-1 text-sm text-zinc-900 dark:text-zinc-100">{formatTimestamp(selectedLog.timestamp)}</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">Level</label>
+                      <p className="mt-1">
+                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getLevelColor(selectedLog.level)}`}>
+                          {selectedLog.level}
+                        </span>
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">Source</label>
+                      <p className="mt-1 text-sm text-zinc-900 dark:text-zinc-100">{selectedLog.source}</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">Application</label>
+                      <p className="mt-1 text-sm text-zinc-900 dark:text-zinc-100">{selectedLog.applicationName}</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">Machine</label>
+                      <p className="mt-1 text-sm text-zinc-900 dark:text-zinc-100">{selectedLog.machineName}</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">User ID</label>
+                      <p className="mt-1 font-mono text-sm text-zinc-900 dark:text-zinc-100">{selectedLog.userId || "-"}</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">Thread ID</label>
+                      <p className="mt-1 font-mono text-sm text-zinc-900 dark:text-zinc-100">{selectedLog.threadId || "-"}</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">Correlation ID</label>
+                      <p className="mt-1 font-mono text-sm text-zinc-900 dark:text-zinc-100">{selectedLog.correlationId || "-"}</p>
+                    </div>
+                    {selectedLog.requestMethod && selectedLog.requestPath && (
+                      <div>
+                        <label className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">Request</label>
+                        <p className="mt-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{selectedLog.requestMethod}</p>
+                        <p className="mt-0.5 font-mono text-xs text-zinc-600 dark:text-zinc-400">{selectedLog.requestPath}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">Message</label>
+                    <p className="mt-1 rounded-md bg-zinc-50 p-3 text-sm text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100">{selectedLog.message}</p>
+                  </div>
+
+                  {selectedLog.exceptionMessage && (
+                    <div>
+                      <label className="text-xs font-semibold uppercase tracking-wider text-red-600 dark:text-red-400">Exception</label>
+                      <p className="mt-1 rounded-md bg-red-50 p-3 text-sm text-red-900 dark:bg-red-950/30 dark:text-red-200">{selectedLog.exceptionMessage}</p>
+                    </div>
+                  )}
+
+                  {selectedLog.stackTrace && (
+                    <div>
+                      <label className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">Stack Trace</label>
+                      <pre className="mt-1 overflow-x-auto rounded-md bg-zinc-900 p-3 font-mono text-xs text-zinc-100 dark:bg-zinc-950">{selectedLog.stackTrace}</pre>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="py-12 text-center text-red-600 dark:text-red-400">
+                  Failed to load log details
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
