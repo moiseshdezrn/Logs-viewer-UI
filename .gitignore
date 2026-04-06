@@ -47,10 +47,6 @@ next-env.d.ts
 .DS_Store
 Thumbs.db
 
-# Logs
-logs
-*.log
-
 # Test coverage
 coverage/
 .nyc_output/
